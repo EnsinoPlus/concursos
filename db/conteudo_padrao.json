@@ -1,0 +1,156 @@
+{
+ "modulos": {
+  "questoes": {
+   "nome": "Caderno de Questões",
+   "desc": "Questões comentadas da sua área e das matérias básicas, com cartão de respostas."
+  },
+  "flashcards": {
+   "nome": "Flashcards de Revisão",
+   "desc": "Cartões de memorização que voltam na hora certa conforme sua avaliação."
+  },
+  "redacao": {
+   "nome": "Redação e Discursiva",
+   "desc": "Folha pautada com contador de linhas e roteiro de autoavaliação pelos critérios das bancas."
+  },
+  "edital": {
+   "nome": "Edital Verticalizado",
+   "desc": "Checklist das matérias e tópicos da sua área, com a porcentagem já estudada."
+  },
+  "simulado": {
+   "nome": "Diagnóstico de Pontos Fracos",
+   "desc": "Seu aproveitamento por matéria e um atalho para treinar o que está mais fraco."
+  },
+  "desempenho": {
+   "nome": "Meu Desempenho",
+   "desc": "Questões respondidas, acertos e sequência de dias estudando."
+  },
+  "pegadinhas": {
+   "nome": "Marcador de Pegadinhas",
+   "desc": "Cole qualquer texto de estudo e veja destacadas as palavras que as bancas usam para enganar."
+  },
+  "recursos": {
+   "nome": "Modelo de Recurso",
+   "desc": "Monte o texto do recurso contra o gabarito preliminar a partir dos seus argumentos."
+  },
+  "tutor": {
+   "nome": "Tutor com IA",
+   "desc": "Conversa com perguntas e correções em tempo real."
+  },
+  "podcast": {
+   "nome": "Resumos em Áudio",
+   "desc": "Resumos narrados para ouvir no trânsito ou na academia."
+  }
+ },
+ "guias": {
+  "inicio": [
+   "Escolha a sua área (por exemplo, Saúde ou Policial).",
+   "A sala monta seu plano: matérias básicas + matérias da área.",
+   "Abra um módulo e comece pelo Caderno de Questões."
+  ],
+  "questoes": [
+   "Escolha a matéria no filtro (ou deixe \"Todas\").",
+   "Marque uma alternativa e clique em Confirmar.",
+   "Errou? Use \"Mostrar explicação\" para entender e \"Mostrar resposta\" para ver a letra certa.",
+   "Use o ícone de risco para eliminar alternativas.",
+   "\"Salvar como flashcard\" leva a questão para sua revisão."
+  ],
+  "flashcards": [
+   "Leia a frente e tente lembrar a resposta.",
+   "Clique no cartão para virar.",
+   "Avalie sua lembrança: o cartão volta amanhã, em 3 ou em 7 dias."
+  ],
+  "redacao": [
+   "Digite o tema e escreva seu texto.",
+   "Acompanhe palavras e linhas no contador.",
+   "Marque a autoavaliação antes de dar o texto por terminado."
+  ],
+  "edital": [
+   "Abra cada matéria e marque os tópicos que já estudou.",
+   "A barra mostra quanto do conteúdo você já cobriu.",
+   "Confira sempre o edital oficial do seu concurso."
+  ],
+  "simulado": [
+   "Responda questões no Caderno.",
+   "Volte aqui para ver o aproveitamento por matéria.",
+   "Use o botão para treinar a matéria mais fraca."
+  ],
+  "desempenho": [
+   "Seus números vêm das questões respondidas.",
+   "Estude um pouco todo dia para manter a sequência."
+  ],
+  "pegadinhas": [
+   "Cole um trecho de lei, apostila ou questão.",
+   "Vermelho: palavras absolutas (sempre, nunca, somente).",
+   "Amarelo: exceções (salvo, exceto).",
+   "Azul: prazos e números, que as bancas adoram trocar."
+  ],
+  "recursos": [
+   "Preencha os dados da questão e seus argumentos.",
+   "Cite a lei ou a fonte que sustenta o pedido.",
+   "Gere, revise e copie o texto para o sistema da banca."
+  ]
+ },
+ "rodape": "Ensino Plus Concursos • Seu progresso fica salvo na sua conta.",
+ "criterios_redacao": [
+  "Respondi exatamente ao que o tema pediu, sem fugir do assunto.",
+  "O texto tem introdução, desenvolvimento e conclusão claros.",
+  "Cada parágrafo traz um argumento com explicação ou exemplo.",
+  "Usei conectivos para ligar as ideias (além disso, portanto, entretanto...).",
+  "Revisei ortografia, acentuação, crase e concordância.",
+  "Fiquei dentro do limite de linhas pedido pela banca."
+ ],
+ "pegadinhas": {
+  "alerta": [
+   "sempre",
+   "nunca",
+   "jamais",
+   "somente",
+   "apenas",
+   "exclusivamente",
+   "privativ[oa]s?",
+   "vedad[oa]s?",
+   "proibid[oa]s?",
+   "obrigatóri[oa]s?",
+   "obrigatoriamente",
+   "todos",
+   "todas",
+   "nenhum",
+   "nenhuma",
+   "deverá",
+   "deverão",
+   "poderá",
+   "poderão",
+   "independentemente",
+   "necessariamente"
+  ],
+  "excecao": [
+   "salvo",
+   "exceto",
+   "ressalvad[oa]s?",
+   "ressalva",
+   "desde que",
+   "a não ser",
+   "com exceção",
+   "em regra",
+   "via de regra"
+  ]
+ },
+ "planos": {
+  "mensal": {
+   "preco": 19.9
+  },
+  "anual": {
+   "preco": 179.9,
+   "parcelas": 12
+  },
+  "beneficios": [
+   "Questões comentadas de todas as áreas",
+   "Flashcards com revisão espaçada",
+   "Edital verticalizado da sua área",
+   "Diagnóstico de pontos fracos e desempenho por matéria",
+   "Redação com autoavaliação pelos critérios das bancas",
+   "Marcador de pegadinhas e modelo de recurso",
+   "Seu progresso salvo na conta, em qualquer aparelho"
+  ]
+ }
+}
