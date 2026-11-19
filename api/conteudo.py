@@ -36,6 +36,10 @@ def _lista(v, minimo, maximo, tam, rotulo):
 
 def validar(chave: str, valor, atual):
     """Confere e devolve o valor pronto para gravar."""
+    if chave == "acesso":
+        if not isinstance(valor, dict) or not isinstance(valor.get("login_obrigatorio"), bool):
+            raise HTTPException(400, "Formato inválido")
+        return {"login_obrigatorio": valor["login_obrigatorio"]}
     if chave == "rodape":
         return _texto(valor, 1, 200, "Rodapé")
     if chave == "criterios_redacao":

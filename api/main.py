@@ -63,6 +63,28 @@ def consulta(sql: str, params=()):
         return c.execute(sql, params).fetchall()
 
 
+# Interruptor de acesso (administração > Textos da página > Acesso): exigir login para estudar?
+# Sem a chave no banco, o padrão é exigir (mais seguro). Guardado por 10 segundos.
+_cache_acesso = [0.0, True]
+
+
+def login_obrigatorio() -> bool:
+    agora = time.time()
+    if agora - _cache_acesso[0] > 10:
+        try:
+            linha = consulta("select valor from conteudo where chave = 'acesso'")
+            _cache_acesso[1] = (linha[0]["valor"].get("login_obrigatorio", True) is not False) if linha else True
+        except Exception:
+            _cache_acesso[1] = True
+        _cache_acesso[0] = agora
+    return _cache_acesso[1]
+
+
+def exigir_login_se_ativo(request: Request):
+    if login_obrigatorio():
+        usuario_do_token(request)
+
+
 @app.get("/api/saude")
 def saude():
     consulta("select 1")
@@ -88,7 +110,7 @@ def questoes(
     excluir: str | None = Query(None, description="ids já vistos, separados por vírgula"),
 ):
     """Devolve questões SEM gabarito e SEM comentário. Só para quem fez login (protege o banco de cópia anônima)."""
-    usuario_do_token(request)
+    exigir_login_se_ativo(request)
     filtros, params = [], []
     if materia:
         filtros.append("q.materia = %s")
@@ -119,7 +141,7 @@ class Resposta(BaseModel):
 
 @app.post("/api/questoes/{qid}/responder")
 def responder(qid: str, corpo: Resposta, request: Request):
-    usuario_do_token(request)
+    exigir_login_se_ativo(request)
     linhas = consulta("select correta, comentario, alternativas from questoes where id = %s", (qid,))
     if not linhas:
         raise HTTPException(404, "Questão não encontrada")
@@ -217,7 +239,7 @@ def aluno_entrar(request: Request):
 
 @app.get("/api/flashcards")
 def flashcards(request: Request, materia: str | None = None, area: str | None = None):
-    usuario_do_token(request)
+    exigir_login_se_ativo(request)
     filtros, params = [], []
     if materia:
         filtros.append("f.materia = %s")

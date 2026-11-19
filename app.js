@@ -707,10 +707,16 @@ async function carregarConteudo() {
     if (c.criterios_redacao) CRITERIOS_REDACAO.splice(0, CRITERIOS_REDACAO.length, ...c.criterios_redacao.map(esc));
     if (c.pegadinhas) { PEGADINHAS.alerta = c.pegadinhas.alerta; PEGADINHAS.excecao = c.pegadinhas.excecao; }
     if (c.planos) PLANOS = c.planos;
+    loginObrigatorio = c.acesso ? c.acesso.login_obrigatorio !== false : true;
+    aplicarRegraDeLogin();
     const rodape = document.getElementById('rodape');
     if (c.rodape && rodape) rodape.textContent = c.rodape;
     abrir(estado.modulo);
-  } catch (e) { console.warn('Textos da administração indisponíveis, usando os padrões:', e.message); }
+  } catch (e) {
+    console.warn('Textos da administração indisponíveis, usando os padrões:', e.message);
+    loginObrigatorio = true;   // sem saber a regra, exige login (mais seguro)
+    if (typeof aplicarRegraDeLogin === 'function') aplicarRegraDeLogin();
+  }
 }
 
 // ---------- INÍCIO ----------

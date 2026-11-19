@@ -152,5 +152,8 @@
    "Marcador de pegadinhas e modelo de recurso",
    "Seu progresso salvo na conta, em qualquer aparelho"
   ]
+ },
+ "acesso": {
+  "login_obrigatorio": true
  }
 }

@@ -621,6 +621,7 @@ async function abaTextos() {
   const pg = TEXTOS.pegadinhas || { alerta: [], excecao: [] };
   conteudo(`<div class="space-y-4">
     ${sec('Módulos', 'Nome e descrição de cada cartão da página inicial.', Object.entries(mods).map(([id, m]) => `<div class="grid sm:grid-cols-3 gap-2"><input name="nome_${id}" value="${esc(m.nome)}" maxlength="60" class="${CAMPO} font-bold"><textarea name="desc_${id}" rows="2" maxlength="300" class="${CAMPO} sm:col-span-2 text-xs">${esc(m.desc)}</textarea></div>`).join(''), 'modulos')}
+    ${sec('Acesso à página dos alunos', 'Define se o aluno precisa entrar com a conta para estudar. Sem login, as questões ficam abertas a qualquer visitante e o progresso fica só no navegador de cada pessoa (não há perfil, plano por conta nem desempenho por aluno). Ao mudar, ajuste também o texto do rodapé. Antes de importar as questões da QAPI, volte a exigir login.', `<label class="inline-flex items-center gap-2 text-sm font-semibold"><input type="checkbox" name="login_obrigatorio" ${(TEXTOS.acesso || { login_obrigatorio: true }).login_obrigatorio ? 'checked' : ''}> Exigir login para estudar</label>`, 'acesso')}
     ${sec('Planos e preços', 'Valores da aba Planos da página. O anual precisa custar menos que 12 meses do mensal.', (() => { const pl = TEXTOS.planos || { mensal: {}, anual: {}, beneficios: [] }; return `<div class="grid sm:grid-cols-3 gap-3">
       <label class="text-xs font-bold block">Mensal (R$)<input name="preco_mensal" type="number" step="0.01" min="1" max="9999" required value="${pl.mensal.preco ?? ''}" class="${CAMPO} mt-1"></label>
       <label class="text-xs font-bold block">Anual (R$)<input name="preco_anual" type="number" step="0.01" min="1" max="9999" required value="${pl.anual.preco ?? ''}" class="${CAMPO} mt-1"></label>
@@ -638,6 +639,7 @@ async function salvarTexto(ev, chave) {
   if (chave === 'modulos') { valor = {}; Object.keys(TEXTOS.modulos).forEach(id => { valor[id] = { nome: f['nome_' + id].value, desc: f['desc_' + id].value }; }); }
   else if (chave === 'guias') { valor = {}; Object.keys(TEXTOS.guias).forEach(id => { valor[id] = f['guia_' + id].value.split('\n'); }); }
   else if (chave === 'rodape') valor = f.rodape.value;
+  else if (chave === 'acesso') valor = { login_obrigatorio: f.login_obrigatorio.checked };
   else if (chave === 'planos') valor = { mensal: { preco: Number(f.preco_mensal.value) }, anual: { preco: Number(f.preco_anual.value), parcelas: Number(f.parcelas.value) }, beneficios: f.beneficios.value.split('\n') };
   else if (chave === 'criterios_redacao') valor = f.criterios.value.split('\n');
   else valor = { alerta: f.alerta.value.split('\n'), excecao: f.excecao.value.split('\n') };

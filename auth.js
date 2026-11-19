@@ -5,6 +5,15 @@
 // Login com Google desligado por enquanto: o Supabase compartilhado precisa liberar o endereço da página
 // (Authentication > URL Configuration > Redirect URLs). Quando liberar, troque para true.
 const LOGIN_GOOGLE = false;
+
+// Se o login é obrigatório vem da administração (Textos da página > Acesso). null = ainda não sabemos.
+let loginObrigatorio = null;
+function aplicarRegraDeLogin() {
+  if (loginObrigatorio === null) return;
+  if (loginObrigatorio && !usuario) { modoLogin = 'entrar'; telaLogin(); }
+  else esconderLogin();
+  if (!loginObrigatorio && typeof iniciarConteudo === 'function') iniciarConteudo();
+}
 const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 let usuario = null;
 let ehAdmin = false;
@@ -104,7 +113,7 @@ sb.auth.onAuthStateChange((evento, sessao) => {
     const nova = prompt('Digite sua nova senha (mínimo 6 caracteres):');
     if (nova) sb.auth.updateUser({ password: nova }).then(({ error }) => alert(error ? traduzErro(error) : 'Senha alterada.'));
   }
-  if (usuario) esconderLogin(); else { modoLogin = 'entrar'; telaLogin(); }
+  aplicarRegraDeLogin();
   mostrarUsuario();
   if (usuario && (evento === 'SIGNED_IN' || evento === 'INITIAL_SESSION')) registrarAluno(sessao.access_token);
 });
