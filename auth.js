@@ -2,6 +2,9 @@
 // LOGIN — usa a mesma conta Ensino Plus (Supabase) dos outros sistemas.
 // Precisa de config.js (SUPABASE_URL e SUPABASE_ANON_KEY, chave pública).
 // =====================================================================
+// Login com Google desligado por enquanto: o Supabase compartilhado precisa liberar o endereço da página
+// (Authentication > URL Configuration > Redirect URLs). Quando liberar, troque para true.
+const LOGIN_GOOGLE = false;
 const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 let usuario = null;
 let ehAdmin = false;
@@ -30,7 +33,7 @@ function telaLogin(msg, tipo) {
     <input id="login-email" type="email" required placeholder="E-mail" class="${campo}" autocomplete="email">
     ${modoLogin !== 'recuperar' ? `<input id="login-senha" type="password" required minlength="6" placeholder="Senha" class="${campo}" autocomplete="${modoLogin === 'criar' ? 'new-password' : 'current-password'}">` : ''}
     <button id="login-botao" class="${BOTAO} w-full">${{ entrar: 'Entrar', criar: 'Criar conta', recuperar: 'Enviar link' }[modoLogin]}</button>
-    ${modoLogin !== 'recuperar' ? `<button type="button" onclick="entrarGoogle()" class="${BOTAO2} w-full">Entrar com Google</button>` : ''}
+    ${LOGIN_GOOGLE && modoLogin !== 'recuperar' ? `<button type="button" onclick="entrarGoogle()" class="${BOTAO2} w-full">Entrar com Google</button>` : ''}
     <div class="flex justify-between text-xs font-semibold text-indigo-600 dark:text-indigo-400">
       ${modoLogin === 'entrar'
         ? `<button type="button" onclick="trocarModo('criar')">Criar conta</button><button type="button" onclick="trocarModo('recuperar')">Esqueci a senha</button>`
