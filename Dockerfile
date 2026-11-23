@@ -9,7 +9,9 @@ RUN pip install -r api/requirements.txt
 
 COPY api/ api/
 # Só estes arquivos são públicos. dados, scripts de banco e config.js local ficam de fora.
-COPY index.html admin.html app.js auth.js perfil.js planos.js sync.js admin.js site/
+COPY index.html admin.html app.js auth.js perfil.js planos.js sync.js admin.js estilo.css fontes.css favicon.svg manifest.webmanifest icone-192.png icone-512.png apple-touch-icon.png site/
+COPY fontes/ site/fontes/
+COPY vendor/ site/vendor/
 
 RUN useradd --create-home app && chown -R app /app/site
 USER app

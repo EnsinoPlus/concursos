@@ -1,0 +1,15 @@
+{
+  "name": "Ensino Plus Concursos",
+  "short_name": "EP Concursos",
+  "description": "Sala de estudos para concursos públicos de todas as áreas: questões, flashcards, edital e redação.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eaedf2",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

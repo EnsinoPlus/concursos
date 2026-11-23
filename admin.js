@@ -48,6 +48,7 @@ function telaEntrar(msg) {
     <input id="e-senha" type="password" required placeholder="Senha" class="${CAMPO}" autocomplete="current-password">
     <button class="${BOTAO} w-full justify-center">Entrar</button>
   </form>`;
+  icones();
 }
 async function entrar(ev) {
   ev.preventDefault();

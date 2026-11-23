@@ -426,7 +426,7 @@ function renderDesempenho() {
       ${item('Sequência de dias estudando', seq + (seq === 1 ? ' dia' : ' dias') + (seq ? ' 🔥' : ''), 'flame')}
       ${item('Dias estudados no total', dias, 'calendar-check')}
     </div>
-    <p class="text-[11px] text-slate-500">O ranking com outros candidatos depende da versão com login (próxima etapa).</p>
+    <p class="text-[11px] text-slate-500">Seus números ficam salvos ${typeof usuario !== 'undefined' && usuario ? 'na sua conta' : 'neste navegador'}.</p>
     <button onclick="refazerQuestoes()" class="${BOTAO2}"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Refazer as questões da minha área</button>
   </div>`;
 }
