@@ -59,8 +59,12 @@ async function sair() { await sb.auth.signOut(); }
 
 sb.auth.onAuthStateChange(async (ev, sessao) => {
   token = sessao ? sessao.access_token : null;
-  if (!token) { telaEntrar(); return; }
   if (ev === 'TOKEN_REFRESHED') return;
+  if (!token) {
+    // Se o servidor estiver com ADMIN_SEM_LOGIN ligado, a administração abre sem entrar.
+    try { const eu = await api('/admin/eu'); if (eu.sem_login) { abrirSemLogin(eu); return; } } catch (e) {}
+    telaEntrar(); return;
+  }
   try {
     const eu = await api('/admin/eu');
     document.getElementById('adm-email').textContent = eu.email;
@@ -74,6 +78,19 @@ sb.auth.onAuthStateChange(async (ev, sessao) => {
       <div class="flex gap-2"><a href="index.html" class="${BOTAO2}">Voltar para a página</a><button onclick="sair()" class="${BOTAO2}">Entrar com outra conta</button></div></div>`;
   }
 });
+
+async function abrirSemLogin(eu) {
+  document.getElementById('adm-email').textContent = eu.email;
+  if (!document.getElementById('aviso-sem-login')) {
+    const faixa = document.createElement('div');
+    faixa.id = 'aviso-sem-login';
+    faixa.className = 'px-4 py-2 text-xs font-bold text-center bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200';
+    faixa.textContent = 'Administração aberta SEM login (ADMIN_SEM_LOGIN ligado no servidor). Qualquer pessoa com este endereço vê os alunos e pode alterar o conteúdo.';
+    document.body.insertBefore(faixa, document.body.firstChild);
+  }
+  MATERIAS = await fetch(API + '/materias').then(r => r.json());
+  mostrar(aba);
+}
 
 // ---------- ABAS ----------
 const ABAS = [['resumo', 'Resumo', 'layout-dashboard'], ['alunos', 'Alunos', 'users'], ['questoes', 'Questões', 'check-square'], ['cards', 'Flashcards', 'layers'], ['areas', 'Áreas', 'compass'], ['materias', 'Matérias e edital', 'list-checks'], ['textos', 'Textos da página', 'type'], ['admins', 'Administradores', 'shield'], ['historico', 'Histórico', 'history']];

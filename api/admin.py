@@ -57,7 +57,18 @@ def eh_principal(u: dict) -> bool:
     return bool(ADMIN_PRINCIPAL) and (u.get("email") or "").strip().lower() == ADMIN_PRINCIPAL and bool(u.get("email_confirmed_at") or u.get("confirmed_at"))
 
 
+# Interruptor: com ADMIN_SEM_LOGIN=1 a administração abre SEM login para qualquer pessoa que souber o endereço.
+# Fica desligado por padrão. Quem tiver acesso ao endereço vê dados dos alunos e pode editar ou apagar conteúdo.
+# Para voltar a exigir login, apague a variável (ou ponha 0) e reimplante.
+ADMIN_SEM_LOGIN = os.environ.get("ADMIN_SEM_LOGIN", "").strip().lower() in ("1", "true", "sim", "s")
+if ADMIN_SEM_LOGIN:
+    print("AVISO: ADMIN_SEM_LOGIN ligado. A administração está aberta sem login.")
+_ADMIN_ANONIMO = {"id": "00000000-0000-0000-0000-000000000000", "email": "(sem login)"}
+
+
 def exigir_admin(request: Request) -> dict:
+    if ADMIN_SEM_LOGIN:
+        return _ADMIN_ANONIMO
     u = usuario_do_token(request)
     if eh_principal(u):
         meta = u.get("user_metadata") or {}
@@ -87,7 +98,7 @@ def registrar(admin: dict, acao: str, alvo: str, detalhe: Any = None):
 @rota.get("/eu")
 def eu(request: Request):
     u = exigir_admin(request)
-    return {"id": u["id"], "email": u.get("email")}
+    return {"id": u["id"], "email": u.get("email"), "sem_login": ADMIN_SEM_LOGIN}
 
 
 @rota.get("/resumo")
