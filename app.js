@@ -11,6 +11,15 @@ function salvar(d) { try { localStorage.setItem(CHAVE, JSON.stringify(d)); } cat
 function dataISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function hoje() { return dataISO(new Date()); }
 function esc(t) { const div = document.createElement('div'); div.textContent = t == null ? '' : String(t); return div.innerHTML; }
+// Texto com Markdown simples (negrito, itálico, sublinhado e quebras de linha). Escapa tudo antes,
+// então é seguro para conteúdo vindo de fora (questões da QAPI).
+function md(t) {
+  return esc(t)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.+?)__/g, '<u>$1</u>')
+    .replace(/(^|[\s(])\*(?!\s)([^*\n]+?)\*(?=[\s.,;:!?)]|$)/g, '$1<em>$2</em>')
+    .replace(/\n/g, '<br>');
+}
 function icones() { if (window.lucide) lucide.createIcons(); }
 
 // ---------- CONTEÚDO (preenchido pela API em carregarDaAPI) ----------
@@ -188,7 +197,7 @@ function renderQuestoes() {
     const riscada = estado.riscadas.has(letra) ? 'riscada' : '';
     return `<div class="flex items-stretch gap-2">
       <button ${resp ? 'disabled' : `onclick="marcar('${letra}')"`} class="flex-1 text-left p-3 rounded-xl border ${cls} text-sm flex gap-3 transition-colors">
-        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">${letra})</span><span class="${riscada}">${esc(texto)}</span>
+        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">${letra})</span><span class="${riscada}">${md(texto)}</span>
       </button>
       ${resp ? '' : `<button onclick="riscar('${letra}')" title="Riscar alternativa" class="px-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-500 hover:text-rose-600"><i data-lucide="strikethrough" class="w-4 h-4"></i></button>`}
     </div>`;
@@ -196,7 +205,7 @@ function renderQuestoes() {
 
   let retorno = '';
   if (resp && resp.acertou) {
-    retorno = `<div class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-sm space-y-1"><strong class="text-emerald-800 dark:text-emerald-300">Resposta correta! Letra ${q.correta}.</strong><p class="text-slate-700 dark:text-slate-300">${q.comentario}</p></div>`;
+    retorno = `<div class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-sm space-y-1"><strong class="text-emerald-800 dark:text-emerald-300">Resposta correta! Letra ${q.correta}.</strong><p class="text-slate-700 dark:text-slate-300">${md(q.comentario)}</p></div>`;
   } else if (resp) {
     retorno = `<div class="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-sm space-y-3">
       <strong class="text-rose-800 dark:text-rose-300">Você errou esta questão.</strong>
@@ -204,18 +213,20 @@ function renderQuestoes() {
         <button onclick="revelar()" class="${BOTAO2}" title="Mostra a letra certa em verde nas alternativas"><i data-lucide="eye" class="w-4 h-4"></i> Mostrar resposta</button>
         <button onclick="document.getElementById('explicacao').classList.toggle('hidden')" class="${BOTAO2}" title="Mostra a fundamentação da questão"><i data-lucide="book-open" class="w-4 h-4"></i> Mostrar explicação</button>
       </div>
-      <p id="explicacao" class="hidden text-slate-700 dark:text-slate-300">${q.comentario}</p>
+      <p id="explicacao" class="hidden text-slate-700 dark:text-slate-300">${md(q.comentario)}</p>
     </div>`;
   }
 
   document.getElementById('painel').innerHTML = `<div class="${CARTAO} space-y-5">
-    ${cabecalhoModulo('Prática ativa', 'Caderno de Questões', 'Questões inéditas da Ensino Plus, no estilo das principais bancas.')}
+    ${cabecalhoModulo('Prática ativa', 'Caderno de Questões', 'Questões comentadas da sua área e das matérias básicas.')}
     ${filtro}
     <div class="flex items-center justify-between text-xs flex-wrap gap-2">
       <span class="font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Questão ${estado.qIdx + 1} de ${lista.length}</span>
       <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-semibold">${MATERIAS[q.materia].nome}</span>
     </div>
-    <p class="text-base leading-relaxed text-slate-900 dark:text-white">${esc(q.enunciado)}</p>
+    ${origemQuestao(q)}
+    ${textoBase(q)}
+    <p class="text-base leading-relaxed text-slate-900 dark:text-white">${md(q.enunciado)}</p>
     <div class="space-y-2">${alternativas}</div>
     ${resp ? '' : `<button onclick="confirmar()" class="${BOTAO} w-full"><i data-lucide="check" class="w-4 h-4"></i> Confirmar resposta</button>`}
     ${retorno}
@@ -225,6 +236,26 @@ function renderQuestoes() {
       <button onclick="navegar(1)" class="${BOTAO2}">Próxima <i data-lucide="chevron-right" class="w-4 h-4"></i></button>
     </div>
   </div>`;
+}
+// Banca, órgão, ano e cargo da prova (questões reais importadas da QAPI).
+function origemQuestao(q) {
+  const o = q.origem || {};
+  const partes = [o.banca, o.orgao, o.ano].filter(Boolean).map(esc);
+  if (!partes.length && q.fonte !== 'QAPI') return '';
+  return `<div class="text-xs text-slate-600 dark:text-slate-400 space-y-0.5">
+    ${partes.length ? `<p><strong class="text-slate-800 dark:text-slate-200">${partes.join(' • ')}</strong>${o.cargo ? ` — ${esc(o.cargo)}` : ''}</p>` : ''}
+    ${o.assunto ? `<p>Assunto: ${esc(o.assunto)}</p>` : ''}
+    ${q.fonte === 'QAPI' ? `<p class="text-[11px] text-slate-500">Questões fornecidas por QAPI</p>` : ''}
+  </div>`;
+}
+// Texto de apoio que algumas questões usam (fica recolhido para não ocupar a tela).
+function textoBase(q) {
+  if (!q.texto_base) return '';
+  return `<details open class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-3 text-sm">
+    <summary class="cursor-pointer font-bold text-slate-800 dark:text-slate-200">${q.texto_titulo ? esc(q.texto_titulo) : 'Texto de apoio'}</summary>
+    <div class="mt-2 leading-relaxed text-slate-700 dark:text-slate-300">${md(q.texto_base)}</div>
+    ${q.texto_fonte ? `<p class="mt-2 text-[11px] text-slate-500">Fonte: ${esc(q.texto_fonte)}</p>` : ''}
+  </details>`;
 }
 function marcar(l) { estado.escolhida = l; abrir('questoes'); }
 function riscar(l) { estado.riscadas.has(l) ? estado.riscadas.delete(l) : estado.riscadas.add(l); abrir('questoes'); }
@@ -325,7 +356,7 @@ function avaliarCard(nivel) {
 function salvarComoCard() {
   const q = questoesFiltradas()[estado.qIdx];
   if (!q.correta) { alert('Responda a questão primeiro para salvá-la como flashcard com a resposta.'); return; }
-  const card = { materia: q.materia, frente: q.enunciado, verso: `<strong>Letra ${q.correta}:</strong> ${esc(q.alternativas[q.correta])}<br><br>${q.comentario}` };
+  const card = { materia: q.materia, frente: q.enunciado, verso: `<strong>Letra ${q.correta}:</strong> ${md(q.alternativas[q.correta])}<br><br>${md(q.comentario)}` };
   const d = ler(); d.cardsCriados = d.cardsCriados || [];
   if (d.cardsCriados.some(c => chaveCard(c) === chaveCard(card))) { alert('Esta questão já está no seu baralho de flashcards.'); return; }
   d.cardsCriados.push(card); salvar(d);

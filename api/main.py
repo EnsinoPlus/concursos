@@ -124,8 +124,10 @@ def questoes(
         params.append(ids)
     where = ("where " + " and ".join(filtros)) if filtros else ""
     linhas = consulta(
-        f"""select q.id, q.materia, m.nome as materia_nome, q.enunciado, q.alternativas, q.fonte
-            from questoes q join materias m on m.id = q.materia {where}
+        f"""select q.id, q.materia, m.nome as materia_nome, q.enunciado, q.alternativas, q.fonte, q.origem,
+                   t.titulo as texto_titulo, t.texto as texto_base, t.fonte as texto_fonte
+            from questoes q join materias m on m.id = q.materia
+            left join textos_base t on t.codigo = q.texto {where}
             order by random() limit %s""",
         (*params, limite),
     )
@@ -271,6 +273,15 @@ from conteudo import rota as _rota_conteudo  # noqa: E402
 
 app.include_router(_rota_progresso)
 app.include_router(_rota_conteudo)
+
+# Importação de questões da QAPI (qapi.py). As colunas novas (texto, origem) são criadas na partida.
+from qapi import rota as _rota_qapi, preparar_tabelas as _preparar_qapi  # noqa: E402
+
+app.include_router(_rota_qapi)
+try:
+    _preparar_qapi()
+except Exception as _e:  # dois processos ligando juntos podem colidir; o outro termina o serviço
+    print("Aviso: tabelas da QAPI não preparadas agora:", _e)
 
 
 # ---------- Site (página dos alunos e administração) servido pela própria API ----------

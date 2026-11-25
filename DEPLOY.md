@@ -10,6 +10,7 @@ A API e a página rodam num único serviço (uma imagem Docker, porta 8000). A A
 | `SUPABASE_URL` | URL do Supabase do login Ensino Plus (chave pública, a mesma dos outros apps) |
 | `SUPABASE_ANON_KEY` | chave pública (anon) desse Supabase |
 | `ADMIN_PRINCIPAL` | e-mail do administrador principal (sempre tem acesso e não pode ser removido). Sem esta variável não há administrador principal |
+| `QAPI_KEY` | chave da conta QAPI (painel em qapi.otunac.com/dashboard). Usada só pelo servidor, na importação de questões da administração. Nunca coloque no código |
 | `LIMITE_POR_MINUTO` | opcional; pedidos por minuto por IP (padrão 60) |
 
 Este repositório é público: não coloque senhas, chaves nem endereços de infraestrutura no código. O `config.js` é gerado na partida a partir das variáveis acima.

@@ -250,7 +250,8 @@ async function abaQuestoes() {
   conteudo(`<div class="${CARTAO} space-y-4">
     <div class="flex flex-wrap gap-2 items-center justify-between">
       <h2 class="font-extrabold">Questões <span class="text-slate-500 font-semibold">(${r.total})</span></h2>
-      <div class="flex gap-2"><button onclick="formImportar()" class="${BOTAO2}"><i data-lucide="upload" class="w-4 h-4"></i>Importar em lote</button>
+      <div class="flex gap-2"><button onclick="formQAPI()" class="${BOTAO2}"><i data-lucide="cloud-download" class="w-4 h-4"></i>Importar da QAPI</button>
+      <button onclick="formImportar()" class="${BOTAO2}"><i data-lucide="upload" class="w-4 h-4"></i>Importar em lote</button>
       <button onclick="formQuestao(-1)" class="${BOTAO}"><i data-lucide="plus" class="w-4 h-4"></i>Nova questão</button></div>
     </div>
     <form onsubmit="event.preventDefault(); Object.assign(filtros.questoes, { materia: this.m.value, revisada: this.r.value, busca: this.b.value, pagina: 0 }); mostrar('questoes')" class="flex flex-wrap gap-2">
@@ -522,8 +523,56 @@ async function importarAgora() {
   } catch (e) { aviso(e.message, true); botao.disabled = false; botao.textContent = 'Tentar de novo'; }
 }
 
+// ---------- IMPORTAÇÃO DA QAPI ----------
+// O servidor busca as questões na QAPI (com a chave guardada lá) e grava no banco.
+// Cada página = 1 cota (R$ 0,01) e traz até 10 questões; textos de apoio custam 1 cota cada, uma vez só.
+// Importar de novo a mesma matéria continua de onde parou e não repete questões.
+async function formQAPI() {
+  let s = { materias: [], configurada: true }, feitas = [];
+  try { [s, feitas] = await Promise.all([api('/admin/qapi/sugestoes'), api('/admin/qapi/importacoes')]); } catch (e) { aviso(e.message, true); return; }
+  const progresso = {};
+  feitas.forEach(f => { try { const k = JSON.parse(f.chave); if (!k.banca && !k.ano) progresso[k.materia] = f; } catch (e) {} });
+  const linha = n => { const f = progresso[n]; return f ? ` — ${Math.min(f.total || 0, (f.proxima_pagina - 1) * 10)} de ${f.total} já buscadas` : ''; };
+  abrirModal(`<div class="${CARTAO} w-full max-w-2xl space-y-3 my-8">
+    <div class="flex justify-between items-center"><h2 class="font-extrabold">Importar questões da QAPI</h2><button type="button" onclick="fecharModal()"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+    ${s.configurada ? '' : `<p class="text-xs p-3 rounded-xl bg-rose-50 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300">A chave da QAPI não está configurada no servidor. Cadastre a variável <span class="font-mono">QAPI_KEY</span> no Easypanel.</p>`}
+    <p class="text-xs text-slate-600 dark:text-slate-400">Questões reais de concursos, com gabarito oficial e comentário. Cada página custa <strong>1 cota (R$ 0,01)</strong> e traz até 10 questões. Importar de novo continua de onde parou.</p>
+    <div class="space-y-1"><p class="text-xs font-bold">Matérias trabalhistas</p>
+      ${s.materias.map(n => `<button type="button" onclick="document.getElementById('qp-materia').value=this.dataset.n" data-n="${esc(n)}" class="block w-full text-left text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:border-indigo-400"><strong>${esc(n)}</strong><span class="text-slate-500">${esc(linha(n))}</span></button>`).join('')}
+    </div>
+    <label class="text-xs font-bold block">Matéria na QAPI (nome exato)<input id="qp-materia" class="${CAMPO} mt-1" placeholder="Ex.: Direito do Trabalho"></label>
+    <label class="text-xs font-bold block">Guardar na matéria<select id="qp-destino" class="${CAMPO} mt-1"><option value="">Criar ou usar matéria com o mesmo nome</option>${opcoesMateria('')}</select></label>
+    <div class="grid grid-cols-3 gap-2">
+      <label class="text-xs font-bold block">Banca (opcional)<input id="qp-banca" class="${CAMPO} mt-1" placeholder="Ex.: FCC"></label>
+      <label class="text-xs font-bold block">Ano (opcional)<input id="qp-ano" inputmode="numeric" maxlength="4" class="${CAMPO} mt-1" placeholder="Ex.: 2024"></label>
+      <label class="text-xs font-bold block">Páginas (máx. 60)<input id="qp-paginas" type="number" min="1" max="60" value="10" oninput="document.getElementById('qp-custo').textContent = 'até ' + (this.value * 10) + ' questões • cerca de R$ ' + (this.value * 0.01).toFixed(2).replace('.', ',')" class="${CAMPO} mt-1"></label>
+    </div>
+    <p id="qp-custo" class="text-xs text-slate-600 dark:text-slate-400">até 100 questões • cerca de R$ 0,10</p>
+    <div id="qp-resultado" class="text-sm"></div>
+    <p class="text-[11px] text-slate-500">As questões entram como <strong>não revisadas</strong> e mostram "Questões fornecidas por QAPI" para o aluno, como pedem os termos da QAPI. Depois, inclua a matéria nas áreas certas (aba Áreas).</p>
+    <div class="flex justify-end gap-2"><button type="button" onclick="fecharModal()" class="${BOTAO2}">Fechar</button><button id="qp-botao" onclick="importarQAPI()" class="${BOTAO}" ${s.configurada ? '' : 'disabled'}>Importar</button></div>
+  </div>`);
+}
+async function importarQAPI() {
+  const v = id => document.getElementById(id).value.trim();
+  const corpo = { materia_qapi: v('qp-materia'), materia: v('qp-destino'), banca: v('qp-banca'), ano: v('qp-ano'), paginas: Number(v('qp-paginas')) || 1 };
+  if (!corpo.materia_qapi) { aviso('Informe a matéria da QAPI.', true); return; }
+  const botao = document.getElementById('qp-botao'), res = document.getElementById('qp-resultado');
+  botao.disabled = true; botao.textContent = 'Importando...';
+  res.innerHTML = '<p class="text-slate-500">Buscando na QAPI. Pode levar alguns segundos por página.</p>';
+  try {
+    const r = await api('/admin/qapi/importar', { method: 'POST', body: JSON.stringify(corpo) });
+    res.innerHTML = `<div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-xs space-y-1">
+      <p><strong>${r.gravadas} questões novas</strong> gravadas em <strong>${esc(nomeMateria(r.materia) || r.materia)}</strong>.</p>
+      <p>${r.repetidas} já existiam • ${r.ignoradas} ignoradas (incompletas) • ${r.cotas} cotas usadas (R$ ${(r.cotas * 0.01).toFixed(2).replace('.', ',')})</p>
+      <p>A QAPI tem ${r.total_na_qapi ?? '?'} questões com esse filtro. ${r.paginas_restantes ? `Faltam ${r.paginas_restantes} páginas: clique em Importar de novo para continuar.` : 'Todas já foram buscadas.'}</p></div>`;
+    MATERIAS = await fetch(API + '/materias').then(x => x.json());
+  } catch (e) { res.innerHTML = ''; aviso(e.message, true); }
+  botao.disabled = false; botao.textContent = 'Importar';
+}
+
 // ---------- HISTÓRICO ----------
-const NOMES_ACAO = { editar_texto: 'Editou texto da página', criar_materia: 'Criou matéria', apagar_materia: 'Apagou matéria', criar_area: 'Criou área', editar_area: 'Editou área', apagar_area: 'Apagou área', apagar_aluno: 'Apagou aluno', importar_questoes: 'Importou questões', pre_cadastrar_aluno: 'Cadastrou aluno', cancelar_pre_cadastro: 'Cancelou cadastro de aluno', adicionar_admin: 'Deu acesso de admin', convidar_admin: 'Convidou admin', cancelar_convite: 'Cancelou convite de admin', remover_admin: 'Removeu admin', editar_aluno: 'Editou aluno', criar_questao: 'Criou questão', editar_questao: 'Editou questão', apagar_questao: 'Apagou questão', criar_flashcard: 'Criou flashcard', editar_flashcard: 'Editou flashcard', apagar_flashcard: 'Apagou flashcard', editar_materia: 'Editou matéria' };
+const NOMES_ACAO = { editar_texto: 'Editou texto da página', criar_materia: 'Criou matéria', apagar_materia: 'Apagou matéria', criar_area: 'Criou área', editar_area: 'Editou área', apagar_area: 'Apagou área', apagar_aluno: 'Apagou aluno', importar_questoes: 'Importou questões', importar_qapi: 'Importou questões da QAPI', pre_cadastrar_aluno: 'Cadastrou aluno', cancelar_pre_cadastro: 'Cancelou cadastro de aluno', adicionar_admin: 'Deu acesso de admin', convidar_admin: 'Convidou admin', cancelar_convite: 'Cancelou convite de admin', remover_admin: 'Removeu admin', editar_aluno: 'Editou aluno', criar_questao: 'Criou questão', editar_questao: 'Editou questão', apagar_questao: 'Apagou questão', criar_flashcard: 'Criou flashcard', editar_flashcard: 'Editou flashcard', apagar_flashcard: 'Apagou flashcard', editar_materia: 'Editou matéria' };
 async function abaHistorico() {
   const h = await api('/admin/historico');
   conteudo(`<div class="${CARTAO} space-y-3"><h2 class="font-extrabold">Histórico de alterações</h2>
