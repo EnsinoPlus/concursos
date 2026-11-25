@@ -39,7 +39,9 @@ const estado = {
   escolhida: null,
   riscadas: new Set(),
   cardAtual: null,
-  cardVirado: false
+  cardVirado: false,
+  carregandoQuestoes: false,
+  semente: ''
 };
 function area() { return AREAS.find(a => a.id === estado.areaId) || null; }
 function materiasDaArea() {
@@ -99,10 +101,12 @@ function atualizarCabecalho() {
   document.getElementById('label-area').textContent = a ? `Área: ${a.nome}` : 'Escolha sua área';
 }
 function escolherArea(id) {
+  const mudou = estado.areaId !== id;
   estado.areaId = id;
   estado.filtroMateria = 'todas';
   estado.qIdx = 0;
   const d = ler(); d.areaId = id; salvar(d);
+  if (mudou) carregarQuestoesArea();
   abrir('inicio');
   const el = document.getElementById('bloco-modulos'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -172,17 +176,32 @@ function questoesFiltradas() {
   return QUESTOES.filter(q => mats.includes(q.materia) && (estado.filtroMateria === 'todas' || q.materia === estado.filtroMateria));
 }
 function respostas() { return ler().respostas || {}; }
-function mudarFiltro(v) { estado.filtroMateria = v; estado.qIdx = 0; abrir('questoes'); }
+function mudarFiltro(v) {
+  estado.filtroMateria = v; estado.qIdx = 0; abrir('questoes');
+  // matéria ainda pouco carregada: busca o primeiro lote dela
+  if (v !== 'todas' && QUESTOES.filter(q => q.materia === v).length < Math.min(LOTE_QUESTOES, totalDaMateria(v))) carregarMaisQuestoes();
+}
+function totalDaMateria(m) { return (MATERIAS[m] && MATERIAS[m].total_questoes) || 0; }
+function materiaPorId() { const mapa = {}; QUESTOES.forEach(q => { mapa[q.id] = q.materia; }); return mapa; }
 function renderQuestoes() {
   const lista = questoesFiltradas();
-  const mats = materiasDaArea().filter(m => QUESTOES.some(q => q.materia === m));
-  const filtro = `<label class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 flex-wrap">Matéria:
+  const todasDaArea = materiasDaArea();
+  const mats = todasDaArea.filter(m => totalDaMateria(m) > 0);
+  const nCarregadas = m => QUESTOES.filter(q => q.materia === m).length;
+  const cargaArea = QUESTOES.filter(q => todasDaArea.includes(q.materia)).length;
+  const totalArea = todasDaArea.reduce((t, m) => t + totalDaMateria(m), 0);
+  const cargaAtual = estado.filtroMateria === 'todas' ? cargaArea : nCarregadas(estado.filtroMateria);
+  const totalAtual = estado.filtroMateria === 'todas' ? totalArea : totalDaMateria(estado.filtroMateria);
+  const faltam = cargaAtual < totalAtual;
+  const filtro = `<div class="space-y-1.5"><label class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 flex-wrap">Matéria:
     <select onchange="mudarFiltro(this.value)" class="text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5">
-      <option value="todas">Todas da minha área (${QUESTOES.filter(q => materiasDaArea().includes(q.materia)).length})</option>
-      ${mats.map(m => `<option value="${m}" ${estado.filtroMateria === m ? 'selected' : ''}>${MATERIAS[m].nome} (${QUESTOES.filter(q => q.materia === m).length})</option>`).join('')}
-    </select></label>`;
+      <option value="todas" ${estado.filtroMateria === 'todas' ? 'selected' : ''}>Todas da minha área (${cargaArea} de ${totalArea})</option>
+      ${mats.map(m => `<option value="${m}" ${estado.filtroMateria === m ? 'selected' : ''}>${MATERIAS[m].nome} (${nCarregadas(m)} de ${totalDaMateria(m)})</option>`).join('')}
+    </select></label>
+    ${faltam || estado.carregandoQuestoes ? `<p class="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">${estado.carregandoQuestoes ? 'Carregando questões...' : `Carregadas ${cargaAtual} de ${totalAtual}. A cada visita a sala sorteia um conjunto novo.`}
+      ${faltam && !estado.carregandoQuestoes ? `<button onclick="carregarMaisQuestoes()" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Carregar mais ${Math.min(LOTE_QUESTOES, totalAtual - cargaAtual)}</button>` : ''}</p>` : ''}</div>`;
   if (!lista.length) {
-    document.getElementById('painel').innerHTML = `<div class="${CARTAO}">${cabecalhoModulo('Prática ativa', 'Caderno de Questões')}${filtro}<p class="text-sm text-slate-600 dark:text-slate-400 mt-4">Ainda não há questões cadastradas para esta matéria.</p></div>`;
+    document.getElementById('painel').innerHTML = `<div class="${CARTAO}">${cabecalhoModulo('Prática ativa', 'Caderno de Questões')}${filtro}<p class="text-sm text-slate-600 dark:text-slate-400 mt-4">${estado.carregandoQuestoes ? 'Carregando as questões da sua área...' : 'Ainda não há questões cadastradas para esta matéria.'}</p></div>`;
     return;
   }
   if (estado.qIdx >= lista.length) estado.qIdx = 0;
@@ -283,7 +302,7 @@ async function confirmar() {
   const d = ler();
   d.respostas = d.respostas || {};
   if (!d.respostas[q.id]) {
-    d.respostas[q.id] = { escolha: estado.escolhida, acertou: estado.escolhida === q.correta, data: hoje() };
+    d.respostas[q.id] = { escolha: estado.escolhida, acertou: estado.escolhida === q.correta, data: hoje(), materia: q.materia };
     d.dias = d.dias || [];
     if (!d.dias.includes(hoje())) d.dias.push(hoje());
     salvar(d);
@@ -299,8 +318,8 @@ function revelar() {
 }
 function refazerQuestoes() {
   if (!confirm('Apagar suas respostas e refazer as questões da sua área? Seus flashcards e o edital não são afetados.')) return;
-  const d = ler(); const mats = materiasDaArea();
-  QUESTOES.filter(q => mats.includes(q.materia)).forEach(q => { if (d.respostas) delete d.respostas[q.id]; });
+  const d = ler(); const mats = materiasDaArea(); const mapa = materiaPorId();
+  Object.keys(d.respostas || {}).forEach(id => { if (mats.includes(d.respostas[id].materia || mapa[id])) delete d.respostas[id]; });
   salvar(d); estado.qIdx = 0; abrir('questoes');
 }
 
@@ -403,11 +422,12 @@ function alternarMateriaEdital(m) {
 
 // ---------- DESEMPENHO POR MATÉRIA ----------
 function estatisticas() {
-  const r = respostas(); const mats = materiasDaArea(); const porMateria = {};
-  QUESTOES.forEach(q => {
-    if (!r[q.id] || !mats.includes(q.materia)) return;
-    const s = porMateria[q.materia] = porMateria[q.materia] || { acertos: 0, total: 0 };
-    s.total++; if (r[q.id].acertou) s.acertos++;
+  const r = respostas(); const mats = materiasDaArea(); const porMateria = {}; const mapa = materiaPorId();
+  Object.entries(r).forEach(([id, x]) => {
+    const m = x.materia || mapa[id];   // respostas antigas não têm a matéria: valem só se a questão estiver carregada
+    if (!m || !mats.includes(m)) return;
+    const s = porMateria[m] = porMateria[m] || { acertos: 0, total: 0 };
+    s.total++; if (x.acertou) s.acertos++;
   });
   return porMateria;
 }
@@ -434,8 +454,12 @@ function treinarMateria(m) {
   const lista = questoesFiltradas(); const r = respostas();
   const i = lista.findIndex(q => !r[q.id]);
   estado.qIdx = i >= 0 ? i : 0;
-  if (i < 0) alert(`Você já respondeu todas as questões de ${MATERIAS[m].nome}. Novas questões entram conforme o banco cresce.`);
   abrir('questoes');
+  if (i < 0) {
+    // as questões carregadas já foram respondidas: busca um lote novo antes de dizer que acabou
+    if (lista.length < totalDaMateria(m)) carregarMaisQuestoes();
+    else alert(`Você já respondeu todas as questões de ${MATERIAS[m].nome}. Novas questões entram conforme o banco cresce.`);
+  }
 }
 function sequenciaDias() {
   const set = new Set(ler().dias || []); const d = new Date(); let n = 0;
@@ -684,32 +708,79 @@ async function completarGabaritos() {
 async function carregarDaAPI() {
   try {
     const [areas, materias, cards] = await Promise.all([pegar('/areas'), pegar('/materias'), pegar('/flashcards')]);
-    // Carrega em páginas de 100, em ordem fixa. (O modo antigo, 20 por vez com a lista dos já vistos na URL,
-    // quebrava com mais de 500 questões e estourava o limite de pedidos por minuto.)
-    const questoes = []; let total = Infinity, pagina = 0;
-    while (questoes.length < total) {
-      const lote = await pegar('/questoes?limite=100&pagina=' + pagina);
-      total = lote.total;
-      if (!lote.questoes.length) break;
-      questoes.push(...lote.questoes);
-      pagina++;
-    }
     Object.keys(MATERIAS).forEach(k => delete MATERIAS[k]);
-    materias.forEach(m => { MATERIAS[m.id] = { nome: m.nome, comum: m.comum, topicos: m.topicos }; });
+    materias.forEach(m => { MATERIAS[m.id] = { nome: m.nome, comum: m.comum, topicos: m.topicos, total_questoes: m.total_questoes }; });
     AREAS.splice(0, AREAS.length, ...areas);
     MATERIAS_COMUNS.splice(0, MATERIAS_COMUNS.length, ...materias.filter(m => m.comum).map(m => m.id));
-    questoes.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
-    QUESTOES.splice(0, QUESTOES.length, ...questoes.map(q => ({ ...q, correta: null, comentario: '' })));
+    QUESTOES.splice(0, QUESTOES.length);
     FLASHCARDS.splice(0, FLASHCARDS.length, ...cards);
-    aplicarGabaritos();
     usandoAPI = true;
-    await completarGabaritos();
     estadoConteudo = 'ok';
   } catch (e) {
     console.warn('Não foi possível carregar o conteúdo da API:', e.message);
     estadoConteudo = 'erro';
   }
   abrir(estado.modulo);
+  if (estadoConteudo === 'ok') carregarQuestoesArea();   // só as questões da área do aluno, não o banco todo
+}
+
+// ---------- CARGA DAS QUESTÕES (limite estável) ----------
+// A página nunca baixa o banco inteiro: só a área do aluno, em lotes de 100, até TETO_QUESTOES de uma vez.
+// O servidor alterna entre as matérias e sorteia um conjunto novo a cada visita (semente). O aluno pode pedir
+// mais lotes no Caderno. Assim o tamanho do download não cresce quando entram mais questões no banco.
+const TETO_QUESTOES = 500, LOTE_QUESTOES = 100;
+let cargaId = 0, inicioArea = 0;
+function acrescentarQuestoes(lista) {
+  const ja = new Set(QUESTOES.map(q => q.id));
+  lista.filter(q => !ja.has(q.id)).forEach(q => QUESTOES.push({ ...q, correta: null, comentario: '' }));
+}
+async function carregarQuestoesArea() {
+  const id = ++cargaId;
+  QUESTOES.splice(0, QUESTOES.length);
+  inicioArea = 0;
+  if (!estado.areaId || !usandoAPI) return;
+  estado.carregandoQuestoes = true; estado.semente = Math.random().toString(36).slice(2, 10);
+  if (estado.modulo === 'questoes') abrir('questoes');
+  try {
+    while (QUESTOES.length < TETO_QUESTOES) {
+      const lote = await pegar(`/questoes?area=${encodeURIComponent(estado.areaId)}&limite=${LOTE_QUESTOES}&inicio=${inicioArea}&semente=${estado.semente}`);
+      if (id !== cargaId) return;   // o aluno trocou de área no meio da carga
+      if (!lote.questoes.length) break;
+      acrescentarQuestoes(lote.questoes); inicioArea += lote.questoes.length;
+      if (inicioArea >= lote.total) break;
+    }
+    aplicarGabaritos();
+    await completarGabaritos();
+  } catch (e) {
+    console.warn('Não foi possível carregar as questões:', e.message);
+  }
+  if (id !== cargaId) return;
+  estado.carregandoQuestoes = false;
+  if (['questoes', 'simulado'].includes(estado.modulo)) abrir(estado.modulo);
+}
+// Botão "Carregar mais" do Caderno: mais um lote do filtro atual (da matéria escolhida ou da área).
+async function carregarMaisQuestoes() {
+  if (estado.carregandoQuestoes) return;
+  const id = cargaId, m = estado.filtroMateria;
+  estado.carregandoQuestoes = true; abrir('questoes');
+  try {
+    const inicio = m === 'todas' ? inicioArea : QUESTOES.filter(q => q.materia === m).length;
+    const alvo = m === 'todas' ? `area=${encodeURIComponent(estado.areaId)}` : `materia=${encodeURIComponent(m)}`;
+    const lote = await pegar(`/questoes?${alvo}&limite=${LOTE_QUESTOES}&inicio=${inicio}&semente=${estado.semente}`);
+    if (id !== cargaId) return;
+    acrescentarQuestoes(lote.questoes);
+    if (m === 'todas') inicioArea += lote.questoes.length;
+    aplicarGabaritos();
+    await completarGabaritos();
+    // se o aluno está numa questão já respondida, leva para a primeira que ainda não respondeu
+    const lista = questoesFiltradas(), r = respostas(), prox = lista.findIndex(q => !r[q.id]);
+    if (prox >= 0 && lista[estado.qIdx] && r[lista[estado.qIdx].id]) estado.qIdx = prox;
+  } catch (e) {
+    alert('Não foi possível carregar mais questões agora. Verifique sua conexão e tente de novo.');
+  }
+  if (id !== cargaId) return;
+  estado.carregandoQuestoes = false;
+  if (estado.modulo === 'questoes') abrir('questoes');
 }
 
 // Tela mostrada enquanto o conteúdo carrega ou quando a API não responde.

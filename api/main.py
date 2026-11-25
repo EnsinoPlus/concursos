@@ -98,7 +98,10 @@ def areas():
 
 @app.get("/api/materias")
 def materias():
-    return consulta("select id, nome, comum, topicos from materias order by comum desc, nome")
+    # total_questoes: quantas questões a matéria tem no banco (a página usa para mostrar "56 de 564").
+    return consulta("""select m.id, m.nome, m.comum, m.topicos,
+                              (select count(*) from questoes q where q.materia = m.id)::int as total_questoes
+                       from materias m order by m.comum desc, m.nome""")
 
 
 @app.get("/api/questoes")
@@ -108,16 +111,20 @@ def questoes(
     area: str | None = None,
     limite: int = Query(10, ge=1, le=100),
     excluir: str | None = Query(None, description="ids já vistos, separados por vírgula"),
-    pagina: int | None = Query(None, ge=0, description="carga em páginas, em ordem fixa (usada pela página dos alunos)"),
+    pagina: int | None = Query(None, ge=0, description="carga em páginas (pagina*limite é o ponto de partida)"),
+    inicio: int | None = Query(None, ge=0, description="ponto de partida exato; tem prioridade sobre pagina"),
+    semente: str = Query("", max_length=40, description="muda o sorteio; com a mesma semente a ordem se repete"),
 ):
     """Devolve questões SEM gabarito e SEM comentário. Só para quem fez login (protege o banco de cópia anônima).
 
-    Sem `pagina`: sorteia até 20 questões (modo antigo, com `excluir`).
-    Com `pagina`: devolve `limite` questões (até 100) em ordem fixa por código, a partir de pagina*limite.
-    Esse modo é o que a página usa para carregar o caderno; o modo antigo não funciona com milhares de questões,
-    pois `excluir` aceita só 500 códigos e a lista vai na URL."""
+    Sem `pagina` nem `inicio`: sorteia até 20 questões (modo antigo, com `excluir`).
+    Com `pagina` ou `inicio`: devolve até `limite` (máx. 100) questões a partir daquele ponto, numa ordem que se repete
+    para a mesma `semente` e que alterna entre as matérias (1ª de cada matéria, 2ª de cada, ...). Assim a página
+    carrega a área em lotes e nunca depende de mandar a lista das já recebidas na URL (o modo antigo não funciona
+    com milhares de questões, pois `excluir` aceita só 500 códigos)."""
     exigir_login_se_ativo(request)
-    if pagina is None:
+    em_lotes = pagina is not None or inicio is not None
+    if not em_lotes:
         limite = min(limite, 20)
     filtros, params = [], []
     if materia:
@@ -131,14 +138,26 @@ def questoes(
         filtros.append("not (q.id = any(%s))")
         params.append(ids)
     where = ("where " + " and ".join(filtros)) if filtros else ""
-    linhas = consulta(
-        f"""select q.id, q.materia, m.nome as materia_nome, q.enunciado, q.alternativas, q.fonte, q.origem,
-                   t.titulo as texto_titulo, t.texto as texto_base, t.fonte as texto_fonte
-            from questoes q join materias m on m.id = q.materia
-            left join textos_base t on t.codigo = q.texto {where}
-            order by {"q.id" if pagina is not None else "random()"} limit %s offset %s""",
-        (*params, limite, (pagina or 0) * limite),
-    )
+    campos = """q.id, q.materia, m.nome as materia_nome, q.enunciado, q.alternativas, q.fonte, q.origem,
+                t.titulo as texto_titulo, t.texto as texto_base, t.fonte as texto_fonte"""
+    origem = """from questoes q join materias m on m.id = q.materia
+                left join textos_base t on t.codigo = q.texto"""
+    if em_lotes:
+        ponto = inicio if inicio is not None else pagina * limite
+        linhas = consulta(
+            f"""select * from (
+                    select {campos}, row_number() over (partition by q.materia order by md5(q.id || %s)) as rn
+                    {origem} {where}
+                ) x order by x.rn, md5(x.materia || %s), x.id limit %s offset %s""",
+            (semente, *params, semente, limite, ponto),
+        )
+        for linha in linhas:
+            linha.pop("rn", None)
+    else:
+        linhas = consulta(
+            f"""select {campos} {origem} {where} order by random() limit %s""",
+            (*params, limite),
+        )
     total = consulta(
         f"select count(*) as n from questoes q join materias m on m.id = q.materia {where}", params
     )[0]["n"]
