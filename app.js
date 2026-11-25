@@ -97,6 +97,7 @@ function abrir(modulo, rolarParaAreas) {
   else window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function atualizarCabecalho() {
+  mostrarCronometro();
   const a = area();
   document.getElementById('label-area').textContent = a ? `Área: ${a.nome}` : 'Escolha sua área';
 }
@@ -656,8 +657,11 @@ function atualizarIconeTema() {
   icones();
 }
 let segundos = 0, cronometroAtivo = true;
+// O cronômetro só aparece e só conta dentro dos módulos de estudo (não na tela inicial, em Planos ou no Perfil).
+function emAreaDeEstudo() { return MODULOS.some(m => m.id === estado.modulo && m.grupo !== 'breve'); }
+function mostrarCronometro() { const cx = document.getElementById('caixa-cronometro'); if (cx) cx.style.display = emAreaDeEstudo() ? '' : 'none'; }
 setInterval(() => {
-  if (!cronometroAtivo) return;
+  if (!cronometroAtivo || !emAreaDeEstudo()) return;
   segundos++;
   const h = String(Math.floor(segundos / 3600)).padStart(2, '0');
   const m = String(Math.floor(segundos % 3600 / 60)).padStart(2, '0');
