@@ -684,13 +684,15 @@ async function completarGabaritos() {
 async function carregarDaAPI() {
   try {
     const [areas, materias, cards] = await Promise.all([pegar('/areas'), pegar('/materias'), pegar('/flashcards')]);
-    const questoes = []; let total = Infinity;
+    // Carrega em páginas de 100, em ordem fixa. (O modo antigo, 20 por vez com a lista dos já vistos na URL,
+    // quebrava com mais de 500 questões e estourava o limite de pedidos por minuto.)
+    const questoes = []; let total = Infinity, pagina = 0;
     while (questoes.length < total) {
-      const vistos = questoes.map(q => q.id).join(',');
-      const lote = await pegar('/questoes?limite=20' + (vistos ? '&excluir=' + encodeURIComponent(vistos) : ''));
-      total = lote.total + questoes.length;
+      const lote = await pegar('/questoes?limite=100&pagina=' + pagina);
+      total = lote.total;
       if (!lote.questoes.length) break;
       questoes.push(...lote.questoes);
+      pagina++;
     }
     Object.keys(MATERIAS).forEach(k => delete MATERIAS[k]);
     materias.forEach(m => { MATERIAS[m.id] = { nome: m.nome, comum: m.comum, topicos: m.topicos }; });

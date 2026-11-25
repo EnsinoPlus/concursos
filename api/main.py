@@ -106,11 +106,19 @@ def questoes(
     request: Request,
     materia: str | None = None,
     area: str | None = None,
-    limite: int = Query(10, ge=1, le=20),
+    limite: int = Query(10, ge=1, le=100),
     excluir: str | None = Query(None, description="ids já vistos, separados por vírgula"),
+    pagina: int | None = Query(None, ge=0, description="carga em páginas, em ordem fixa (usada pela página dos alunos)"),
 ):
-    """Devolve questões SEM gabarito e SEM comentário. Só para quem fez login (protege o banco de cópia anônima)."""
+    """Devolve questões SEM gabarito e SEM comentário. Só para quem fez login (protege o banco de cópia anônima).
+
+    Sem `pagina`: sorteia até 20 questões (modo antigo, com `excluir`).
+    Com `pagina`: devolve `limite` questões (até 100) em ordem fixa por código, a partir de pagina*limite.
+    Esse modo é o que a página usa para carregar o caderno; o modo antigo não funciona com milhares de questões,
+    pois `excluir` aceita só 500 códigos e a lista vai na URL."""
     exigir_login_se_ativo(request)
+    if pagina is None:
+        limite = min(limite, 20)
     filtros, params = [], []
     if materia:
         filtros.append("q.materia = %s")
@@ -128,8 +136,8 @@ def questoes(
                    t.titulo as texto_titulo, t.texto as texto_base, t.fonte as texto_fonte
             from questoes q join materias m on m.id = q.materia
             left join textos_base t on t.codigo = q.texto {where}
-            order by random() limit %s""",
-        (*params, limite),
+            order by {"q.id" if pagina is not None else "random()"} limit %s offset %s""",
+        (*params, limite, (pagina or 0) * limite),
     )
     total = consulta(
         f"select count(*) as n from questoes q join materias m on m.id = q.materia {where}", params
