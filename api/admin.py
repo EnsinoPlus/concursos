@@ -111,6 +111,7 @@ def resumo(request: Request):
         (select count(*) from questoes) as questoes,
         (select count(*) from questoes where not revisada) as questoes_nao_revisadas,
         (select count(*) from flashcards) as flashcards,
+        (select count(*) from reportes where status = 'aberto') as reportes_abertos,
         (select count(*) from progresso) as alunos_com_progresso,
         (select coalesce(sum((select count(*) from jsonb_object_keys(coalesce(dados->'respostas', '{}'::jsonb)))), 0)
            from progresso) as respostas_total""")[0]
@@ -279,7 +280,9 @@ def questoes(request: Request, materia: str = "", busca: str = "", revisada: str
         filtros.append("revisada = %s")
         params.append(revisada == "sim")
     where = ("where " + " and ".join(filtros)) if filtros else ""
-    linhas = consulta(f"select * from questoes {where} order by criada_em desc, id limit %s offset %s",
+    linhas = consulta(f"""select questoes.*, (select count(*) from reportes r where r.questao = questoes.id
+                                               and r.status = 'aberto')::int as reportes
+                          from questoes {where} order by criada_em desc, id limit %s offset %s""",
                       (*params, limite, pagina * limite))
     total = consulta(f"select count(*) n from questoes {where}", params)[0]["n"]
     return {"total": total, "questoes": linhas}

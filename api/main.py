@@ -310,6 +310,15 @@ try:
 except Exception as _e:  # dois processos ligando juntos podem colidir; o outro termina o serviço
     print("Aviso: tabelas da QAPI não preparadas agora:", _e)
 
+# Reportar erro em questão (reportes.py). A tabela é criada na partida.
+from reportes import rota as _rota_reportes, preparar_tabela as _preparar_reportes  # noqa: E402
+
+app.include_router(_rota_reportes)
+try:
+    _preparar_reportes()
+except Exception as _e:
+    print("Aviso: tabela de reportes não preparada agora:", _e)
+
 
 # ---------- Site (página dos alunos e administração) servido pela própria API ----------
 if SITE_DIR and os.path.isdir(SITE_DIR):

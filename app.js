@@ -41,6 +41,7 @@ const estado = {
   cardAtual: null,
   cardVirado: false,
   carregandoQuestoes: false,
+  reportando: null,
   semente: ''
 };
 function area() { return AREAS.find(a => a.id === estado.areaId) || null; }
@@ -255,7 +256,43 @@ function renderQuestoes() {
       <button onclick="salvarComoCard()" class="${BOTAO2}"><i data-lucide="layers" class="w-4 h-4"></i> Salvar como flashcard</button>
       <button onclick="navegar(1)" class="${BOTAO2}">Próxima <i data-lucide="chevron-right" class="w-4 h-4"></i></button>
     </div>
+    ${caixaReporte(q)}
   </div>`;
+}
+// ---------- REPORTAR ERRO NA QUESTÃO ----------
+const MOTIVOS_REPORTE = [['gabarito', 'Gabarito errado'], ['enunciado', 'Erro no enunciado ou nas alternativas'], ['explicacao', 'Explicação errada ou faltando'], ['desatualizada', 'Questão desatualizada (lei mudou)'], ['outro', 'Outro problema']];
+function caixaReporte(q) {
+  if (!usandoAPI) return '';
+  const enviados = ler().reportes || {};
+  if (estado.reportando !== q.id) {
+    return `<div class="text-center">${enviados[q.id]
+      ? `<span class="text-xs text-slate-500 inline-flex items-center gap-1.5"><i data-lucide="flag" class="w-3.5 h-3.5"></i> Você reportou um problema nesta questão. Obrigado!</span>`
+      : `<button onclick="abrirReporte()" class="text-xs font-semibold text-slate-500 hover:text-rose-600 inline-flex items-center gap-1.5"><i data-lucide="flag" class="w-3.5 h-3.5"></i> Reportar erro nesta questão</button>`}</div>`;
+  }
+  return `<form onsubmit="enviarReporte(event)" class="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/30 space-y-3 text-sm">
+    <strong class="block text-rose-800 dark:text-rose-300">Qual é o problema desta questão?</strong>
+    <div class="space-y-1.5">${MOTIVOS_REPORTE.map(([v, t], i) => `<label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="motivo" value="${v}" ${i === 0 ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+    <textarea name="detalhe" maxlength="1000" rows="3" placeholder="Explique em poucas palavras (opcional). Ex.: a resposta certa é a letra B, conforme o art. 7º da CF." class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"></textarea>
+    <div class="flex justify-end gap-2">
+      <button type="button" onclick="estado.reportando = null; abrir('questoes')" class="${BOTAO2}">Cancelar</button>
+      <button class="${BOTAO}"><i data-lucide="send" class="w-4 h-4"></i> Enviar reporte</button>
+    </div>
+  </form>`;
+}
+function abrirReporte() { estado.reportando = questoesFiltradas()[estado.qIdx].id; abrir('questoes'); }
+async function enviarReporte(ev) {
+  ev.preventDefault();
+  const f = ev.target; const qid = estado.reportando;
+  const botao = f.querySelector('button:not([type])'); botao.disabled = true;
+  try {
+    const r = await fetch(`${API}/questoes/${encodeURIComponent(qid)}/reportar`, {
+      method: 'POST', headers: cabecalhos(true), body: JSON.stringify({ motivo: f.motivo.value, detalhe: f.detalhe.value })
+    });
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(typeof corpo.detail === 'string' ? corpo.detail : 'Não foi possível enviar agora. Tente de novo.');
+    const d = ler(); d.reportes = d.reportes || {}; d.reportes[qid] = hoje(); salvar(d);
+    estado.reportando = null; abrir('questoes');
+  } catch (e) { alert(e.message === 'Failed to fetch' ? 'Sem conexão. Tente de novo.' : e.message); botao.disabled = false; }
 }
 // Banca, órgão, ano e cargo da prova (questões reais importadas da QAPI).
 function origemQuestao(q) {

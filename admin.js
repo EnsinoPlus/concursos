@@ -6,7 +6,7 @@ const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANO
 let token = null;
 let MATERIAS = [];
 let aba = 'resumo';
-const filtros = { alunos: { busca: '', pagina: 0 }, questoes: { materia: '', busca: '', revisada: '', pagina: 0 }, cards: { materia: '' } };
+const filtros = { alunos: { busca: '', pagina: 0 }, questoes: { materia: '', busca: '', revisada: '', pagina: 0 }, cards: { materia: '' }, reportes: { status: 'aberto', pagina: 0 } };
 
 const CARTAO = 'bg-white dark:bg-[#111625] rounded-2xl p-5 border border-slate-300 dark:border-slate-800 shadow-sm';
 const BOTAO = 'px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs inline-flex items-center gap-1.5';
@@ -93,12 +93,12 @@ async function abrirSemLogin(eu) {
 }
 
 // ---------- ABAS ----------
-const ABAS = [['resumo', 'Resumo', 'layout-dashboard'], ['alunos', 'Alunos', 'users'], ['questoes', 'Questões', 'check-square'], ['cards', 'Flashcards', 'layers'], ['areas', 'Áreas', 'compass'], ['materias', 'Matérias e edital', 'list-checks'], ['textos', 'Textos da página', 'type'], ['admins', 'Administradores', 'shield'], ['historico', 'Histórico', 'history']];
+const ABAS = [['resumo', 'Resumo', 'layout-dashboard'], ['alunos', 'Alunos', 'users'], ['questoes', 'Questões', 'check-square'], ['reportes', 'Reportes', 'flag'], ['cards', 'Flashcards', 'layers'], ['areas', 'Áreas', 'compass'], ['materias', 'Matérias e edital', 'list-checks'], ['textos', 'Textos da página', 'type'], ['admins', 'Administradores', 'shield'], ['historico', 'Histórico', 'history']];
 function mostrar(a) {
   aba = a;
   document.getElementById('abas').innerHTML = ABAS.map(([id, nome, ic]) => `<button onclick="mostrar('${id}')" class="px-3 py-2.5 border-b-2 whitespace-nowrap inline-flex items-center gap-1.5 ${id === aba ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300' : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'}"><i data-lucide="${ic}" class="w-4 h-4"></i>${nome}</button>`).join('');
   document.getElementById('conteudo').innerHTML = '<p class="text-sm text-slate-500">Carregando...</p>';
-  ({ resumo: abaResumo, alunos: abaAlunos, questoes: abaQuestoes, cards: abaCards, areas: abaAreas, materias: abaMaterias, textos: abaTextos, admins: abaAdmins, historico: abaHistorico })[a]().then(icones).catch(e => {
+  ({ resumo: abaResumo, alunos: abaAlunos, questoes: abaQuestoes, reportes: abaReportes, cards: abaCards, areas: abaAreas, materias: abaMaterias, textos: abaTextos, admins: abaAdmins, historico: abaHistorico })[a]().then(icones).catch(e => {
     document.getElementById('conteudo').innerHTML = `<p class="text-sm text-rose-600">${esc(e.message)}</p>`;
   });
 }
@@ -112,6 +112,7 @@ async function abaResumo() {
     ${bloco('Alunos', r.alunos, `${r.ativos_7d} ativos nos últimos 7 dias`)}
     ${bloco('Questões', r.questoes, `${r.questoes_nao_revisadas} aguardando revisão`)}
     ${bloco('Flashcards', r.flashcards)}
+    ${bloco('Reportes de erro', r.reportes_abertos, 'abertos, enviados pelos alunos')}
     ${bloco('Matérias', MATERIAS.length)}
     ${bloco('Alunos com progresso', r.alunos_com_progresso, 'têm o progresso guardado na conta')}
     ${bloco('Respostas registradas', r.respostas_total, 'em questões respondidas pelos alunos')}
@@ -246,9 +247,11 @@ function paginacao(alvo, total, porPagina) {
 
 // ---------- QUESTÕES ----------
 let QUESTOES_TELA = [];
+let VOLTAR_PARA = null;
 let ALUNOS_TELA = [];
 let PRE_TELA = [];
 async function abaQuestoes() {
+  VOLTAR_PARA = null;
   const f = filtros.questoes;
   const r = await api(`/admin/questoes?materia=${f.materia}&busca=${encodeURIComponent(f.busca)}&revisada=${f.revisada}&pagina=${f.pagina}`);
   QUESTOES_TELA = r.questoes;
@@ -258,6 +261,7 @@ async function abaQuestoes() {
         <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-semibold">${esc(nomeMateria(q.materia))}</span>
         <span class="px-2 py-0.5 rounded-md ${q.revisada ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'} font-semibold">${q.revisada ? 'Revisada' : 'Não revisada'}</span>
         <span class="text-slate-500">${esc(q.fonte)}</span>
+        ${q.reportes ? `<button onclick="filtros.reportes.status = 'aberto'; filtros.reportes.pagina = 0; mostrar('reportes')" class="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 font-semibold inline-flex items-center gap-1"><i data-lucide="flag" class="w-3 h-3"></i>${q.reportes} reporte${q.reportes > 1 ? 's' : ''}</button>` : ''}
         <span class="ml-auto font-bold text-emerald-700 dark:text-emerald-400">Gabarito: ${esc(q.correta)}</span>
       </div>
       <p class="text-sm">${esc(q.enunciado)}</p>
@@ -310,13 +314,63 @@ async function salvarQuestao(ev, id) {
   const dados = { id: id || f.codigo.value || null, materia: f.materia.value, enunciado: f.enunciado.value, alternativas, correta: (f.correta.value || ''), comentario: f.comentario.value, fonte: f.fonte.value, revisada: f.revisada.checked };
   try {
     await api(id ? '/admin/questoes/' + encodeURIComponent(id) : '/admin/questoes', { method: id ? 'PUT' : 'POST', body: JSON.stringify(dados) });
-    fecharModal(); aviso('Questão salva.'); mostrar('questoes');
+    fecharModal(); aviso('Questão salva.'); mostrar(VOLTAR_PARA || 'questoes'); VOLTAR_PARA = null;
   } catch (e) { aviso(e.message, true); }
 }
 async function apagarQuestao(id) {
   if (!confirm(`Apagar a questão ${id}? Ela some para todos os alunos. Uma cópia fica guardada no histórico.`)) return;
   await acao(() => api('/admin/questoes/' + encodeURIComponent(id), { method: 'DELETE' }), 'Questão apagada.');
   mostrar('questoes');
+}
+
+// ---------- REPORTES DE ERRO (enviados pelos alunos) ----------
+async function abaReportes() {
+  const f = filtros.reportes;
+  const r = await api(`/admin/reportes?status=${f.status}&pagina=${f.pagina}`);
+  const cor = { aberto: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300', resolvido: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300', descartado: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' };
+  const lista = r.reportes.map(x => `<div class="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <span class="px-2 py-0.5 rounded-md font-semibold ${cor[x.status] || ''}">${esc(x.status)}</span>
+        <strong>${esc(x.motivo_texto)}</strong>
+        <span class="font-mono">${esc(x.questao)}</span>
+        ${x.materia ? `<span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-semibold">${esc(nomeMateria(x.materia))}</span>` : '<span class="text-rose-600">questão apagada</span>'}
+        ${x.abertos_da_questao > 1 ? `<span class="text-rose-600 font-bold">${x.abertos_da_questao} reportes abertos nesta questão</span>` : ''}
+        <span class="ml-auto text-slate-500">${data(x.criado_em)} · ${esc(x.email || 'sem login')}</span>
+      </div>
+      ${x.detalhe ? `<p class="text-sm p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">${esc(x.detalhe)}</p>` : '<p class="text-xs text-slate-500">O aluno não escreveu detalhes.</p>'}
+      ${x.enunciado ? `<p class="text-sm text-slate-600 dark:text-slate-400 line-clamp-3">${esc(x.enunciado)} <strong class="text-emerald-700 dark:text-emerald-400">(Gabarito: ${esc(x.correta)})</strong></p>` : ''}
+      <div class="flex flex-wrap gap-2">
+        ${x.materia ? `<button onclick="abrirQuestaoReportada('${esc(x.questao)}')" class="${BOTAO2}"><i data-lucide="pencil" class="w-3.5 h-3.5"></i>Abrir e corrigir a questão</button>` : ''}
+        ${x.status === 'aberto' ? `<button onclick="mudarReporte(${x.id}, 'resolvido', ${x.abertos_da_questao > 1})" class="${BOTAO2}"><i data-lucide="check" class="w-3.5 h-3.5"></i>Marcar resolvido</button>
+          <button onclick="mudarReporte(${x.id}, 'descartado', ${x.abertos_da_questao > 1})" class="${BOTAO2}"><i data-lucide="x" class="w-3.5 h-3.5"></i>Descartar (não há erro)</button>`
+          : `<button onclick="mudarReporte(${x.id}, 'aberto', false)" class="${BOTAO2}"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>Reabrir</button>`}
+      </div>
+    </div>`).join('');
+  const op = (v, t) => `<option value="${v}" ${f.status === v ? 'selected' : ''}>${t}</option>`;
+  conteudo(`<div class="${CARTAO} space-y-4">
+    <div class="flex flex-wrap gap-2 items-center justify-between">
+      <h2 class="font-extrabold">Reportes de erro <span class="text-slate-500 font-semibold">(${r.abertos} abertos)</span></h2>
+      <select onchange="filtros.reportes.status = this.value; filtros.reportes.pagina = 0; mostrar('reportes')" class="${CAMPO} !w-auto">
+        ${op('aberto', 'Abertos')}${op('resolvido', 'Resolvidos')}${op('descartado', 'Descartados')}${op('todos', 'Todos')}</select>
+    </div>
+    <p class="text-xs text-slate-500">Os alunos apontam problemas pelo botão "Reportar erro nesta questão". Corrija a questão e marque o reporte como resolvido.</p>
+    <div class="space-y-3">${lista || '<p class="text-sm text-slate-500">Nenhum reporte aqui.</p>'}</div>
+    ${paginacao('reportes', r.total, 50)}
+  </div>`);
+}
+async function abrirQuestaoReportada(qid) {
+  try {
+    const r = await api(`/admin/questoes?busca=${encodeURIComponent(qid)}&limite=200`);
+    const i = r.questoes.findIndex(q => q.id === qid);
+    if (i < 0) { aviso('Questão não encontrada.', true); return; }
+    QUESTOES_TELA = r.questoes; VOLTAR_PARA = 'reportes'; formQuestao(i);
+  } catch (e) { aviso(e.message, true); }
+}
+async function mudarReporte(id, status, varios) {
+  const todos = varios && status !== 'aberto' && confirm('Esta questão tem outros reportes abertos. Aplicar a todos eles?');
+  await acao(() => api('/admin/reportes/' + id, { method: 'PATCH', body: JSON.stringify({ status, todos_da_questao: todos }) }),
+    { resolvido: 'Reporte marcado como resolvido.', descartado: 'Reporte descartado.', aberto: 'Reporte reaberto.' }[status]);
+  mostrar('reportes');
 }
 
 // ---------- FLASHCARDS ----------
